@@ -1,40 +1,29 @@
 # frozen_string_literal: true
 
-require_relative 'services/db'
-require_relative 'services/telegram_sender'
-require 'rss'
+require_relative 'services/readers/youtube'
+require_relative 'services/readers/atom'
+require_relative 'services/cache'
+require 'async'
 require 'yaml'
 
-channels = YAML.load_file('config/channels.yml')['channels']
-list = channels.map { |id| "https://www.youtube.com/feeds/videos.xml?channel_id=#{id}" }
+config = YAML.load_file('config/feeds.yml')
+feeds = config['feeds'] || []
+last_check = Cache.read_last_check
 
-def escape_html(text)
-  text
-    .to_s
-    .gsub('&', '&amp;')
-    .gsub('<', '&lt;')
-    .gsub('>', '&gt;')
+Async do
+  feeds.map do |feed|
+    Async do
+      case feed['type']
+      when 'youtube'
+        url = "https://www.youtube.com/feeds/videos.xml?channel_id=#{feed['id']}"
+        YoutubeReader.parse(url, last_check)
+      when 'rss'
+        AtomReader.parse(feed['url'], last_check)
+      else
+        warn "Unknown feed type: #{feed['type']}"
+      end
+    end
+  end.map(&:wait)
 end
 
-list.each do |feed_url|
-  feed = RSS::Parser.parse(feed_url, validate: false)
-  channel_name = feed.author.name.content
-
-  feed.entries.each do |entry|
-    video_url = entry.link.href
-    next if video_url.include?('shorts')
-    next if DB.video_seen?(video_url)
-
-    video_title = entry.title.content
-
-    message = <<~MSG
-      Author: <b>#{escape_html(channel_name)}</b>
-      Published at: #{entry.published.strftime('%Y-%m-%d %H:%M')}
-
-      <a href="#{video_url}">#{escape_html(video_title)}</a>
-    MSG
-
-    TelegramSender.send_message(message)
-    DB.mark_video_seen(video_url, video_title)
-  end
-end
+Cache.write_last_check

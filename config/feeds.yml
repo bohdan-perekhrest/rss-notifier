@@ -1,0 +1,75 @@
+feeds:
+  - type: youtube
+    id: UC-b89a0Fw6pNoP-g-_qLeiw
+  - type: youtube
+    id: UC2q4mHrzoR48mwSuAYtVPtQ
+  - type: youtube
+    id: UC3bZgJqT_LfwLfeOtDgO88A
+  - type: youtube
+    id: UC5xLYlJwLEWKedeliRnMPug
+  - type: youtube
+    id: UC6If-LcFxUDJhgL9dmB8oMA
+  - type: youtube
+    id: UC7scMfFypUV7T3d9PiV23oA
+  - type: youtube
+    id: UC9MK8SybZcrHR3CUV4NMy2g
+  - type: youtube
+    id: UCCr5a9lf6LtGMvOX4gz0iug
+  - type: youtube
+    id: UCGSqw82Zny7_z-QLpyMAxIw
+  - type: youtube
+    id: UCGvQAPkKzSeWu6mhZKrGx_Q
+  - type: youtube
+    id: UCIQ1PyEVzV2sc4CXHKH2cSg
+  - type: youtube
+    id: UCM7-8EfoIv0T9cCI4FhHbKQ
+  - type: youtube
+    id: UCOxQWb-OuyCSZadzWqrKTCQ
+  - type: youtube
+    id: UCUyeluBRhGPCW4rPe_UvBZQ
+  - type: youtube
+    id: UCUzkWdUCkVrkKCcmut9epTQ
+  - type: youtube
+    id: UCd190n-WQVHPC2l5gu0E2QQ
+  - type: youtube
+    id: UCjay7c-KSW2nC8Grq_q8tHg
+  - type: youtube
+    id: UCk73U4QT3cNDvqb_PaWM8AA
+  - type: youtube
+    id: UCkUe2e1YuRtBRRaP2XTupwg
+  - type: youtube
+    id: UCoEhy7X8n7goJIyy-nLCxGg
+  - type: youtube
+    id: UCpFXaEz3vKJ45XjW5m5pbow
+  - type: youtube
+    id: UCtQJxXLYUhdfkr8jgGfzdMA
+  - type: youtube
+    id: UCtihVU6wLYu09x_oW7LCAtA
+  - type: youtube
+    id: UCwipTluVS2mjuhPtx2WU7eQ
+  - type: youtube
+    id: UCyTXjkYDt1t3lH1UErSILvw
+  - type: youtube
+    id: UCDGytyBxhU_b-OFcbLCdJSw
+  - type: youtube
+    id: UC8M5YVWQan_3Elm-URehz9w
+  - type: youtube
+    id: UC1tGyMwuF6hUHRp2syrADOQ
+  - type: youtube
+    id: UClusShJbD5SIMuoF9Ql5hOw
+  - type: youtube
+    id: UC101o-vQ2iOj9vr00JUlyKw
+  - type: youtube
+    id: UC9XJvt8OT-9_8QHDBdqocaw
+  - type: youtube
+    id: UClOA6fePoku3XBBxKrSLpuw
+  - type: youtube
+    id: UCqFjrhGSX6vIGoHTnxk9sIg
+  - type: youtube
+    id: UC5eNHOA5OZtqJc6PvtUFfYw
+  - type: rss
+    url: https://dou.ua/forums/feed/tag/tech/
+  - type: rss
+    url: https://dou.ua/lenta/news/feed/
+  - type: rss
+    url: https://rubyland.news/feed.rss
