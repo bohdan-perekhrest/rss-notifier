@@ -22,21 +22,23 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25.5'
           cache: true
 
-      - name: Cache articles database
+      - name: Cache last check timestamp
         uses: actions/cache@v3
         with:
           path: cache
           key: rss-cache-${{ github.run_id }}
           restore-keys: rss-cache-
 
-      - name: Download dependencies
-        run: go mod download
+      - name: Verify and download dependencies
+        run: |
+          go mod tidy
+          go mod download
 
       - name: Build application
-        run: go build -o rss-notifier main.go
+        run: go build -o rss-notifier .
 
       - name: Run RSS notifier
         env:
