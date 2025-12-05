@@ -2,8 +2,8 @@ name: RSS Notifier
 
 on:
   schedule:
-    # Runs every 30 minutes
-    - cron: '*/30 * * * *'
+    # Runs every 30 minutes from 7am to 11:59pm (skips 12am-7am)
+    - cron: '*/30 7-23 * * *'
   workflow_dispatch: # Allows manual trigger
 
 permissions:
