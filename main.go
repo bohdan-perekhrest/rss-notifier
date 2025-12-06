@@ -1,22 +1,23 @@
 package main
 
 import (
-	"gopkg.in/yaml.v3"
 	"log"
 	"os"
+	"time"
+
 	"rss-notifier/internal/cache"
 	"rss-notifier/internal/reader"
-	"sync"
-	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
-func processFeed(url string, lastCheck *time.Time, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func processFeed(url string, lastCheck *time.Time, done chan<- bool) {
 	reader := reader.NewReader()
 	if err := reader.Parse(url, lastCheck); err != nil {
 		log.Printf("Failed to parse feed %s: %v\n", url, err)
 	}
+
+	done <- true
 }
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 	lastCheck, err := cache.ReadLastCheck()
 	if err != nil { log.Printf("Warning: could not read cache: %v\n", err) }
 
-	var wg sync.WaitGroup
+	done := make(chan bool, len(data["feeds"]))
 
 	for _, feed := range data["feeds"] {
 		url := feed["url"]
@@ -38,10 +39,12 @@ func main() {
 			url = "https://www.youtube.com/feeds/videos.xml?channel_id=" + feed["url"]
 		}
 
-		wg.Add(1)
-		go processFeed(url, lastCheck, &wg)
+		go processFeed(url, lastCheck, done)
 	}
-	wg.Wait()
+
+	for i := 0; i < len(data["feeds"]); i++ {
+		<-done
+	}
 
 	if err := cache.WriteLastCheck(); err != nil { log.Fatal(err) }
 }
