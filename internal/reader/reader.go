@@ -1,10 +1,10 @@
 package reader
 
 import (
+	"html"
 	"net/http"
 	"strings"
 	"time"
-	"html"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -32,7 +32,10 @@ func (reader *Reader)Parse(feedUrl string, lastCheck *time.Time, jobs chan<- str
 		url := item.Link
 		publishedAt, err := time.Parse(time.RFC3339, item.Published)
 		if err != nil {
-			continue
+			publishedAt, err = time.Parse(time.RFC1123Z, item.Published)
+			if err != nil {
+				continue
+			}
 		}
 
 		if shouldSkip(url, publishedAt, lastCheck) {
