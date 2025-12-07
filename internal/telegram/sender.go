@@ -17,20 +17,25 @@ type SendMessageRequest struct {
 	DisableNotification   bool   `json:"disable_notification"`
 }
 
-var (
-	botToken string
+type Sender struct {
 	chatID   string
-)
-
-func init() {
-	godotenv.Load()
-	botToken = os.Getenv("TELEGRAM_BOT_TOKEN")
-	chatID = os.Getenv("TELEGRAM_CHAT_ID")
+	botToken string
+	client *http.Client
 }
 
-func SendMessage(text string) error {
+func NewSender(httpClient *http.Client) Sender {
+	godotenv.Load()
+
+	return Sender{
+		chatID: os.Getenv("TELEGRAM_CHAT_ID"),
+		botToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
+		client: httpClient,
+	}
+}
+
+func (sender *Sender)SendMessage(text string) error {
 	data := &SendMessageRequest{
-		ChatID: chatID,
+		ChatID: sender.chatID,
 		Text: text,
 		ParseMode: "HTML",
 		DisableWebPagePreview: false,
@@ -44,7 +49,7 @@ func SendMessage(text string) error {
 
 	req, err := http.NewRequest(
 		"POST",
-		"https://api.telegram.org/bot" + botToken + "/sendMessage",
+		"https://api.telegram.org/bot"+sender.botToken+"/sendMessage",
 		bytes.NewBuffer(jsonData),
 	)
 	if err != nil {
@@ -53,7 +58,7 @@ func SendMessage(text string) error {
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := sender.client.Do(req)
 	if err != nil {
 		return err
 	}

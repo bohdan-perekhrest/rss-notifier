@@ -1,21 +1,28 @@
 package reader
 
 import (
-	"github.com/mmcdole/gofeed"
-	"log"
-	"rss-notifier/internal/telegram"
+	"net/http"
 	"strings"
 	"time"
+	"html"
+
+	"github.com/mmcdole/gofeed"
 )
 
-type Reader struct {}
-
-func NewReader() *Reader {
-	return &Reader{}
+type Reader struct {
+	Parser *gofeed.Parser
 }
 
-func (reader *Reader)Parse(feedUrl string, lastCheck *time.Time) error {
-	feed, err := fetchFeed(feedUrl)
+func NewReader(client *http.Client) Reader {
+	parser := gofeed.NewParser()
+	parser.Client = client
+	return Reader{
+		Parser: parser,
+	}
+}
+
+func (reader *Reader)Parse(feedUrl string, lastCheck *time.Time, jobs chan<- string) error {
+	feed, err := reader.Parser.ParseURL(feedUrl)
 	if err != nil {
 		return err
 	}
@@ -32,27 +39,24 @@ func (reader *Reader)Parse(feedUrl string, lastCheck *time.Time) error {
 			continue
 		}
 		title := item.Title
-		description := item.Description
-		message := formatMessage(channelName, url, title, description)
-		if err := telegram.SendMessage(message); err != nil { log.Printf("Failed to send message: %v\n", err) }
+		jobs <- formatMessage(channelName, url, title)
 	}
 	return nil
 }
 
-func fetchFeed(url string) (*gofeed.Feed, error) {
-	parser := gofeed.NewParser()
-	return parser.ParseURL(url)
-}
+func formatMessage(channelName, url, title string) string {
+	var builder strings.Builder
 
-func formatMessage(channelName, url, title, description string) string {
-	return "FROM: <b>" + escapeHTML(channelName) + "</b>\nDescription:" + escapeHTML(description) + "\n<a href=\"" + url + "\">" + escapeHTML(title) + "</a>"
-}
+	builder.Grow(len(channelName) + len(url) + len(title) + 50)
+	builder.WriteString("FROM: <b>")
+	builder.WriteString(html.EscapeString(channelName))
+	builder.WriteString("</b>\n<a href=\"")
+	builder.WriteString(url)
+	builder.WriteString("\">")
+	builder.WriteString(html.EscapeString(title))
+	builder.WriteString("</a>")
 
-func escapeHTML(text string) string {
-	text = strings.ReplaceAll(text, "&", "&amp;")
-	text = strings.ReplaceAll(text, "<", "&lt;")
-	text = strings.ReplaceAll(text, ">", "&gt;")
-	return text
+	return builder.String()
 }
 
 func shouldSkip(url string, publishedAt time.Time, lastCheck *time.Time) bool {
