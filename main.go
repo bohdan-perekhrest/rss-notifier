@@ -7,24 +7,18 @@ import (
 	"sync"
 	"time"
 
-	"rss-notifier/internal/cache"
+	"rss-notifier/internal/database"
 	"rss-notifier/internal/reader"
 	"rss-notifier/internal/telegram"
 
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	client = createHTTPClient()
-	Reader = reader.NewReader(client)
-	Sender = telegram.NewSender(client)
-)
-
 func createHTTPClient() *http.Client {
 	transport := &http.Transport{
-		MaxIdleConns:        100,
+		MaxIdleConns:        50,
 		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
+		IdleConnTimeout:     10 * time.Second,
 		TLSHandshakeTimeout: 10 * time.Second,
 	}
 
@@ -34,16 +28,30 @@ func createHTTPClient() *http.Client {
 	}
 }
 
-func main() {
+func readFeedsConfig() ([]map[string]string, error) {
 	yfile, err := os.ReadFile("config/feeds.yml")
-	if err != nil { log.Fatal(err) }
+	if err != nil { return nil, err }
 
 	var data map[string][]map[string]string
 	err = yaml.Unmarshal(yfile, &data)
+	if err != nil { return nil, err }
+
+	return data["feeds"], nil
+}
+
+func main() {
+	// Load feeds
+	feeds, err := readFeedsConfig()
 	if err != nil { log.Fatal(err) }
 
-	lastCheck, err := cache.ReadLastCheck()
-	if err != nil { log.Printf("Warning: could not read cache: %v\n", err) }
+	// Initialize Database
+	db, err := database.InitDB()
+	if err != nil { log.Fatal(err) }
+	defer db.CloseDB()
+
+	client := createHTTPClient()
+	parser := reader.NewReader(client, db)
+	sender := telegram.NewSender(client)
 
 	messagesJobs := make(chan string, 5)
 	var workerWg sync.WaitGroup
@@ -55,12 +63,12 @@ func main() {
 			defer workerWg.Done()
 
 			for text := range jobs {
-				if err := Sender.SendMessage(text); err != nil { log.Printf("Failed to send message: %v\n", err) }
+				if err := sender.SendMessage(text); err != nil { log.Printf("Failed to send message: %v\n", err) }
 			}
 		}(messagesJobs)
 	}
 
-	for _, feed := range data["feeds"] {
+	for _, feed := range feeds {
 		url := feed["url"]
 		if feed["type"] == "youtube" {
 			url = "https://www.youtube.com/feeds/videos.xml?channel_id=" + feed["url"]
@@ -70,8 +78,10 @@ func main() {
 		go func(url string) {
 			defer feedWg.Done()
 
-			if err := Reader.Parse(url, lastCheck, messagesJobs); err != nil {
+			err := parser.Parse(url, messagesJobs)
+			if err != nil {
 				log.Printf("Failed to parse feed %s: %v\n", url, err)
+				return
 			}
 		}(url)
 	}
@@ -79,6 +89,4 @@ func main() {
 	feedWg.Wait()
 	close(messagesJobs)
 	workerWg.Wait()
-
-	if err := cache.WriteLastCheck(); err != nil { log.Fatal(err) }
 }

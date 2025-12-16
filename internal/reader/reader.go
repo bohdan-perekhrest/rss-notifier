@@ -4,46 +4,60 @@ import (
 	"html"
 	"net/http"
 	"strings"
-	"time"
+	"fmt"
 
+	"rss-notifier/internal/database"
 	"github.com/mmcdole/gofeed"
 )
 
 type Reader struct {
 	Parser *gofeed.Parser
+	db *database.Database
 }
 
-func NewReader(client *http.Client) Reader {
+func NewReader(client *http.Client, database *database.Database) Reader {
 	parser := gofeed.NewParser()
 	parser.Client = client
 	return Reader{
 		Parser: parser,
+		db: database,
 	}
 }
 
-func (reader *Reader)Parse(feedUrl string, lastCheck *time.Time, jobs chan<- string) error {
+func (reader Reader)Parse(feedUrl string, jobs chan<- string) error {
 	feed, err := reader.Parser.ParseURL(feedUrl)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 
 	channelName := feed.Title
+
+	lastURL, err := reader.db.GetLastItemURL(feedUrl)
+	if err != nil { return err }
+
+	var firstItemURL string
+
 	for _, item := range feed.Items {
 		url := item.Link
-		updatedAt, err := time.Parse(time.RFC3339, item.Updated)
-		if err != nil {
-			updatedAt, err = time.Parse(time.RFC1123Z, item.Updated)
-			if err != nil {
-				continue
-			}
-		}
-
-		if shouldSkip(url, updatedAt, lastCheck) {
+		if strings.Contains(url, "shorts") {
 			continue
 		}
+
+		// Track the first item's URL (newest item)
+		if firstItemURL == "" {
+			firstItemURL = url
+		}
+
+		// If this is the item we last notified about, stop processing
+		if lastURL != "" && url == lastURL {
+			break
+		}
+
 		title := item.Title
-		jobs <- formatMessage(channelName, url, title)
+		message := formatMessage(channelName, url, title)
+		fmt.Println(message)
 	}
+
+	err = reader.db.SaveLastItemURL(feedUrl, firstItemURL)
+	if err != nil { return err }
 	return nil
 }
 
@@ -60,12 +74,4 @@ func formatMessage(channelName, url, title string) string {
 	builder.WriteString("</a>")
 
 	return builder.String()
-}
-
-func shouldSkip(url string, publishedAt time.Time, lastCheck *time.Time) bool {
-	if strings.Contains(url, "shorts") { return true }
-	if lastCheck == nil && publishedAt.Before(time.Now().Add(-24 * time.Hour)) { return true }
-	if lastCheck != nil && publishedAt.Before(*lastCheck) { return true }
-
-	return false
 }
