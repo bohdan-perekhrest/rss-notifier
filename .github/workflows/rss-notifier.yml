@@ -19,11 +19,18 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
       - name: Cache database
         uses: actions/cache@v3
         with:
-          path: cache.db
-          key: rss-cache-${{ github.run_id }}
+          path: |
+            cache.db
+            cache.db-shm
+            cache.db-wal
+          key: rss-cache-${{ steps.date.outputs.date }}
           restore-keys: rss-cache-
 
       - name: Run RSS notifier
