@@ -4,7 +4,6 @@ import (
 	"html"
 	"net/http"
 	"strings"
-	"fmt"
 
 	"rss-notifier/internal/database"
 	"github.com/mmcdole/gofeed"
