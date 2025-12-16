@@ -52,8 +52,7 @@ func (reader Reader)Parse(feedUrl string, jobs chan<- string) error {
 		}
 
 		title := item.Title
-		message := formatMessage(channelName, url, title)
-		fmt.Println(message)
+		jobs <- formatMessage(channelName, url, title)
 	}
 
 	err = reader.db.SaveLastItemURL(feedUrl, firstItemURL)
