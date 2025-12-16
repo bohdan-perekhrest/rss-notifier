@@ -30,15 +30,15 @@ func (reader *Reader)Parse(feedUrl string, lastCheck *time.Time, jobs chan<- str
 	channelName := feed.Title
 	for _, item := range feed.Items {
 		url := item.Link
-		publishedAt, err := time.Parse(time.RFC3339, item.Published)
+		updatedAt, err := time.Parse(time.RFC3339, item.Updated)
 		if err != nil {
-			publishedAt, err = time.Parse(time.RFC1123Z, item.Published)
+			updatedAt, err = time.Parse(time.RFC1123Z, item.Updated)
 			if err != nil {
 				continue
 			}
 		}
 
-		if shouldSkip(url, publishedAt, lastCheck) {
+		if shouldSkip(url, updatedAt, lastCheck) {
 			continue
 		}
 		title := item.Title
