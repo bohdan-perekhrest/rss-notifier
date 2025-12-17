@@ -2,91 +2,29 @@ package main
 
 import (
 	"log"
-	"net/http"
-	"os"
-	"sync"
-	"time"
 
-	"rss-notifier/internal/database"
+	"rss-notifier/config"
+	"rss-notifier/internal/app"
+	"rss-notifier/internal/cache"
+	"rss-notifier/internal/notifier"
 	"rss-notifier/internal/reader"
-	"rss-notifier/internal/telegram"
-
-	"gopkg.in/yaml.v3"
+	"rss-notifier/pkg/httpclient"
 )
 
-func createHTTPClient() *http.Client {
-	transport := &http.Transport{
-		MaxIdleConns:        50,
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     10 * time.Second,
-		TLSHandshakeTimeout: 10 * time.Second,
-	}
-
-	return &http.Client{
-		Transport: transport,
-		Timeout:   30 * time.Second,
-	}
-}
-
-func readFeedsConfig() ([]map[string]string, error) {
-	yfile, err := os.ReadFile("config/feeds.yml")
-	if err != nil { return nil, err }
-
-	var data map[string][]map[string]string
-	err = yaml.Unmarshal(yfile, &data)
-	if err != nil { return nil, err }
-
-	return data["feeds"], nil
-}
-
 func main() {
-	// Load feeds
-	feeds, err := readFeedsConfig()
-	if err != nil { log.Fatal(err) }
+	cfg, err := config.Load()
+	if err != nil { log.Fatalf("Failed to load config: %v", err) }
 
-	// Initialize Database
-	db, err := database.InitDB()
-	if err != nil { log.Fatal(err) }
-	defer db.CloseDB()
+	db, err := cache.NewSQLiteCache(cfg.DatabasePath)
+	if err != nil { log.Fatalf("Failed to initialize cache: %v", err) }
+	defer db.Close()
 
-	client := createHTTPClient()
-	parser := reader.NewReader(client, db)
-	sender := telegram.NewSender(client)
+	httpClient := httpclient.New(cfg.HTTPTimeout)
+	feedReader := reader.New(httpClient, db, cfg.MaxItemAge)
+	telegramNotifier := notifier.NewTelegram(httpClient, cfg.TelegramChatID, cfg.TelegramToken)
 
-	messagesJobs := make(chan string, 5)
-	var workerWg sync.WaitGroup
-	var feedWg sync.WaitGroup
+	svc := app.NewService(feedReader, telegramNotifier, db, cfg)
 
-	for i := 1; i <= 4; i++ {
-		workerWg.Add(1)
-		go func(jobs <-chan string) {
-			defer workerWg.Done()
+	if err := svc.Run(); err != nil { log.Fatalf("Service failed: %v", err) }
 
-			for text := range jobs {
-				if err := sender.SendMessage(text); err != nil { log.Printf("Failed to send message: %v\n", err) }
-			}
-		}(messagesJobs)
-	}
-
-	for _, feed := range feeds {
-		url := feed["url"]
-		if feed["type"] == "youtube" {
-			url = "https://www.youtube.com/feeds/videos.xml?channel_id=" + feed["url"]
-		}
-
-		feedWg.Add(1)
-		go func(url string) {
-			defer feedWg.Done()
-
-			err := parser.Parse(url, messagesJobs)
-			if err != nil {
-				log.Printf("Failed to parse feed %s: %v\n", url, err)
-				return
-			}
-		}(url)
-	}
-
-	feedWg.Wait()
-	close(messagesJobs)
-	workerWg.Wait()
 }

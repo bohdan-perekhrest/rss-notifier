@@ -1,75 +1,77 @@
 package reader
 
-import (
-	"html"
+import(
+	"fmt"
 	"net/http"
-	"strings"
+	"time"
 
-	"rss-notifier/internal/database"
+	"rss-notifier/internal/cache"
+	"rss-notifier/internal/feed"
+
 	"github.com/mmcdole/gofeed"
 )
 
 type Reader struct {
-	Parser *gofeed.Parser
-	db *database.Database
+	parser *gofeed.Parser
+	cache cache.Cache
+	filter *feed.Filter
 }
 
-func NewReader(client *http.Client, database *database.Database) Reader {
+func New(client *http.Client, cache cache.Cache, maxAge time.Duration) *Reader {
 	parser := gofeed.NewParser()
 	parser.Client = client
-	return Reader{
-		Parser: parser,
-		db: database,
+
+	return &Reader{
+		parser: parser,
+		cache: cache,
+		filter: feed.NewFilter(maxAge),
 	}
 }
 
-func (reader Reader)Parse(feedUrl string, jobs chan<- string) error {
-	feed, err := reader.Parser.ParseURL(feedUrl)
-	if err != nil { return err }
+func (r *Reader) Parse(f feed.Feed) (*feed.Response, error) {
+	feedURL := f.Provider.TransformURL(f.URL)
 
-	channelName := feed.Title
+	parsedFeed, err := r.parser.ParseURL(feedURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse feed %s: %v", feedURL, err)
+	}
 
-	lastURL, err := reader.db.GetLastItemURL(feedUrl)
-	if err != nil { return err }
+	lastURL, err := r.cache.GetLastItemURL(feedURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cache for %s: %v", feedURL, err)
+	}
 
-	var firstItemURL string
+	var items []feed.Item
+	var newestURL string
 
-	for _, item := range feed.Items {
-		url := item.Link
-		if strings.Contains(url, "shorts") {
-			continue
+	for _, item := range parsedFeed.Items {
+		if newestURL == "" {
+			newestURL = item.Link
 		}
 
-		// Track the first item's URL (newest item)
-		if firstItemURL == "" {
-			firstItemURL = url
-		}
-
-		// If this is the item we last notified about, stop processing
-		if lastURL != "" && url == lastURL {
+		if item.Link == lastURL {
 			break
 		}
 
-		title := item.Title
-		jobs <- formatMessage(channelName, url, title)
+		if f.Provider.ShouldSkipItem(item) {
+			continue
+		}
+
+		if !r.filter.ShouldInclude(item) {
+			continue
+		}
+
+		items = append(items, feed.Item{
+			URL:       item.Link,
+			Title:     item.Title,
+			Published: *item.PublishedParsed,
+		})
 	}
 
-	err = reader.db.SaveLastItemURL(feedUrl, firstItemURL)
-	if err != nil { return err }
-	return nil
-}
-
-func formatMessage(channelName, url, title string) string {
-	var builder strings.Builder
-
-	builder.Grow(len(channelName) + len(url) + len(title) + 50)
-	builder.WriteString("FROM: <b>")
-	builder.WriteString(html.EscapeString(channelName))
-	builder.WriteString("</b>\n<a href=\"")
-	builder.WriteString(url)
-	builder.WriteString("\">")
-	builder.WriteString(html.EscapeString(title))
-	builder.WriteString("</a>")
-
-	return builder.String()
+	return &feed.Response{
+		FeedURL:       feedURL,
+		ChannelName:   parsedFeed.Title,
+		Items:         items,
+		NewestItemURL: newestURL,
+	}, nil
 }
