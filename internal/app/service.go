@@ -59,6 +59,7 @@ func (s *Service) Run() error {
 			resp, err := s.reader.Parse(f)
 			if err != nil {
 				log.Printf("Failed to parse feed %s: %v", f.URL, err)
+				return
 			}
 
 			if len(resp.Items) > 0 {
