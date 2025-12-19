@@ -17,6 +17,6 @@ type Item struct {
 type Response struct {
 	FeedURL 	    string
 	ChannelName   string
-	Items 			  []Item
+	Items 			  []*Item
 	NewestItemURL string
 }

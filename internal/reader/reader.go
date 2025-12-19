@@ -41,7 +41,7 @@ func (r *Reader) Parse(f feed.Feed) (*feed.Response, error) {
 		return nil, fmt.Errorf("failed to get cache for %s: %v", feedURL, err)
 	}
 
-	var items []feed.Item
+	var items []*feed.Item
 	var newestURL string
 
 	for _, item := range parsedFeed.Items {
@@ -61,7 +61,8 @@ func (r *Reader) Parse(f feed.Feed) (*feed.Response, error) {
 			continue
 		}
 
-		items = append(items, feed.Item{
+
+		items = append(items, &feed.Item{
 			URL:       item.Link,
 			Title:     item.Title,
 			Published: *item.PublishedParsed,
