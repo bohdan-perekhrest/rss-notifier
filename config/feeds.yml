@@ -73,6 +73,8 @@ feeds:
     url: UCScLnRAwAT2qyNcvaFSFvYA
   - type: youtube
     url: UCMCgOm8GZkHp8zJ6l7_hIuA
+  - type: youtube
+    url: UCmQjEHjsiHXDMK0pNpsJymw
   - type: rss
     url: https://dou.ua/forums/feed/tag/tech/
   - type: rss
